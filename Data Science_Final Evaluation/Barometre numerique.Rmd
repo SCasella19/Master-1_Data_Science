@@ -1,0 +1,448 @@
+---
+title: "Barometre numerique"
+author: "AT-TP-SC"
+date: "19/06/2020"
+output: html_document
+---
+
+<style type="text/css">
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 10px;
+}
+h1{
+  font-size: 24px;
+}
+h2{
+  font-size: 18px;
+}
+pre {
+  font-size: 11px
+}
+</style>
+
+![](pdg.png)
+## Groupe 
+
+CASELLA Sendy
+PLOBNER Thomas
+THOMANN Antoine
+
+```{r setup}
+
+knitr::opts_chunk$set(echo = TRUE)
+library(readr) 
+library(ggplot2) 
+library(dplyr)  
+library(hrbrthemes) 
+library(tidyverse)
+library(viridisLite)
+library(viridis)
+library(forcats)
+library(tidyr)
+library(car)
+```
+
+## Initialisation du programme
+
+Avec cette première partie de code, nous faisons appel aux différents packages que nous allons utiliser pour traiter le set de données que nous avons choisi. 
+Il s'agit du Baromètre du Numérique, publié tous les ans par l'Arcep, le Conseil général de l'économie (CGE) et l'Agence du Numérique.
+
+Le fichier source est trouvable à l'addresse suivante : <https://www.data.gouv.fr/fr/datasets/barometre-du-numerique/>.
+
+```{r file}
+
+#Chargement du fichier CSV
+barom_num <- read_delim("barometredunumerique_2007_2019_fus_Copie.csv", ";", escape_double = FALSE,trim_ws = TRUE)
+
+#Recodage en facteurs
+barom_num$SD.Sexe <-as.factor(barom_num$SEXE)
+barom_num$SD.Categorie.age <-as.factor(barom_num$AGE6FUZ)
+barom_num$SD.CSP <-as.factor(barom_num$PCS8EGO)
+barom_num$SD.Niveau.diplome <-as.factor(barom_num$DIPL5)
+barom_num$SD.Taille.agglomeration <-as.factor(barom_num$AGGLO5)
+barom_num$UG.Competence <-as.factor(barom_num$ABILITY)
+barom_num$UG.Frein.internet <-as.factor(barom_num$FREINWEB)
+barom_num$UG.Smartphone <-as.factor(barom_num$SMARTPHO)
+barom_num$UG.Connexion.internet.fixe <-as.factor(barom_num$INTERNET)
+barom_num$UG.Connexion.internet.mobile <-as.factor(barom_num$ALLMOBI)
+barom_num$UG.Frequence.connexion.internet <-as.factor(barom_num$FREQTOT)
+barom_num$UG.Frequence.ordinateur <-as.factor(barom_num$FREQORDI)
+barom_num$UG.Frequence.smartphone <-as.factor(barom_num$FREQMOB)
+barom_num$UG.Equipement.prefere.internet <-as.factor(barom_num$PREFWEB)
+barom_num$UG.Utilite.ordinateur <-as.factor(barom_num$UTILORDI)
+barom_num$UG.Utilité.smartphone <-as.factor(barom_num$UTILSMAR)
+barom_num$RRSS.divertissement <-as.factor(barom_num$FACEFUN)
+barom_num$RRSS.lien.proches <-as.factor(barom_num$FACELIEN)
+barom_num$RRSS.info.actu <-as.factor(barom_num$FACENEWS)
+barom_num$RRSS.Media.suivi.actu <-as.factor(barom_num$ACTUMED1)
+barom_num$RRSS.Media.comprehension.actu <-as.factor(barom_num$ACTUMED2)
+barom_num$RRSS.1er.media.confiance <-as.factor(barom_num$MEDIA1)
+barom_num$RRSS.2nd.media.confiance <-as.factor(barom_num$MEDIA2)
+
+#Création du fichier de référence
+
+fs <- data.frame(barom_num$annee, barom_num$SD.Sexe, barom_num$SD.Categorie.age, barom_num$SD.CSP, barom_num$SD.Niveau.diplome, barom_num$SD.Taille.agglomeration, barom_num$UG.Competence,  barom_num$UG.Frein.internet, barom_num$UG.Smartphone,barom_num$UG.Connexion.internet.fixe, barom_num$UG.Connexion.internet.mobile, barom_num$UG.Frequence.connexion.internet, barom_num$UG.Frequence.ordinateur, barom_num$UG.Frequence.smartphone, barom_num$UG.Equipement.prefere.internet, barom_num$UG.Utilite.ordinateur, barom_num$UG.Utilité.smartphone, barom_num$RRSS.divertissement, barom_num$RRSS.lien.proches, barom_num$RRSS.info.actu, barom_num$RRSS.Media.suivi.actu, barom_num$RRSS.Media.comprehension.actu, barom_num$RRSS.1er.media.confiance, barom_num$RRSS.2nd.media.confiance)
+
+fs1 <- fs
+```
+
+## Traitement du fichier source
+
+La première étape consiste à transformer en facteurs les différentes variables que nous allons utiliser pour notre analyse. Il s'agit du format approprié car celles-ci constituent des variables quantitatives avec une échelle définie.
+
+Nous avons décidé de nous concentrer autour de trois catégories majeures :
+    * Critères socio-démographiques : labélisés "SD.[...]"
+    * Critères d'usage : labélisés "UG.[...]"
+    * Critères de rapport aux réseaux sociaux comme média : labélisés "RRSS.[...]"
+
+Afin de faciliter les traitements et la lisibilité du fichier source, nous avons créé un dataframe pour stocker les différentes variables servant à notre analyse.
+
+```{r camembert age}
+# CAMEMBERT 1 : REPARTITION AGE ECHANTILLON
+
+data_age <- barom_num%>%group_by(SD.Categorie.age)%>%
+  dplyr::summarize(count=n(),
+                  AgePourcentage=n()/nrow(barom_num))
+
+AgePie <- ggplot(data=data_age, aes(x=3, y=AgePourcentage, fill=SD.Categorie.age))+ geom_col(color="white") +
+coord_polar("y", start=1)+
+geom_text(aes(label=paste0(round(AgePourcentage*100),"%")),
+                position=position_stack(vjust=0,5), size=I(5.5),color="white")+ theme(panel.background=element_blank(),
+      axis.line=element_blank(),
+      axis.title=element_blank(),
+      axis.ticks=element_blank(),
+      axis.text=element_blank(),
+      legend.text=element_text(size=I(13)),
+      plot.title=element_text(hjust=0.5,size= I(17)))+ggtitle("Age Distribution")+
+      xlim(0.3,3.5)
+AgePie + scale_fill_discrete(name = "Catégorie d'âge", labels = c("12-17 ans", "18-24 ans", "25-39 ans", "40-59 ans", "60-69 ans", "70+ ans"))
+```
+
+## Graphique n°1 : répartition des âges dans l'échantillon 
+
+La population la plus représentée sont les 40-59 ans à 31%.
+Viennent ensuite les 60-69 ans.
+Les moins représentés sont les mineurs : 9%.
+
+```{r Pyramide des ages pour 2019}
+
+#Préparation des données
+
+pyage <-data.frame(fs$barom_num.annee, fs$barom_num.SD.Sexe, fs$barom_num.SD.Categorie.age)
+pyage <- subset(pyage, fs.barom_num.annee==2019)
+pyage <- setNames(data.frame(table(pyage$fs.barom_num.SD.Categorie.age, pyage$fs.barom_num.SD.Sexe)), c("Categorie.age", "Sexe", "Frequence"))
+
+  #Graphique
+pyr <- ggplot(pyage, aes(x=Categorie.age, y=ifelse(test= Sexe ==1, yes = Frequence, no = -Frequence), fill=Sexe))+geom_col()+coord_flip()+scale_y_continuous(labels = abs, limits = max(pyage$Frequence) * c(-1,1)) +
+    labs(title="Pyramide des âges - 2019", x="Catégorie âge", y = "Frequence")
+pyr+scale_fill_discrete(name = "Sexe", labels = c("Homme", "Femme")) + scale_x_discrete(breaks=c("1","2","3", "4", "5", "6"),
+        labels=c("12-17 ans", "18-24 ans", "25-39 ans", "40-59 ans", "60-69 ans", "70+ ans"))
+```
+
+## Graphique n°2 : Pyramide des ages pour 2019
+
+Sur ce graphique, nous pouvons observer que la catégorie la plus représentée sont les 40-59 ans, suivis des 25-39 ans.
+Il semble y avoir légèrement plus de femmes que d'hommes.
+La catégorie la moins représentée sont les mineurs.
+
+```{r frequence de connexion}
+
+data_graph1 <- filter(fs, barom_num$annee %in% c(2015, 2016, 2017,2018,2019)) # création table de 2015 à 2019 (afin de supprimer les années où le sondage n'a pas été fait)
+
+g1 <- ggplot(data_graph1) +
+  aes(x = barom_num.SD.CSP, fill = barom_num.UG.Frequence.connexion.internet) +
+  geom_bar(position = "fill")
+  
+g1+ scale_fill_discrete(name = "Fréquence de connexion", labels = c("Tous les jours", "1 à 2 fois / semaine", "Plus rarement", "Jamais", "Ne se sait pas")) + scale_x_discrete(breaks=c("1","2","3", "4", "5", "6", "7", "8"),
+        labels=c("Indépendant", "Cadre supérieur", "Proffession intermédiaire", "Employé", "Ouvrier", "Reste au foyer", "Retraité", "Elève/Etudiant")) + theme(axis.text.x = element_text(size=7, angle=45), axis.text.y = element_blank())+
+    labs(title="Fréquence de connexion à internet par CSP", x="CSP")
+```
+
+## Graphique n°3 : Fréquences de connexion par CSP
+
+De manière générale, quelle que soit la CSP, l'immense majorité des répondants se connectent au moins une fois par jour.
+Cette affirmation peut être nuancée pour la catégorie retraités, qui sont la population avec la majeure propension à ne jamais se connecter.
+
+```{r equipements par age}
+
+# CREATION D'UNE TABLE PAR CATEGORIE D'AGE AVEC COMME FILTRE LES TROIS DERNIERES ANNEES, LE SONDAGE SUR CETTE QUESTION AYANT COMMENCE EN 2017
+
+data_2017a2019_cat1 <- filter(fs, barom_num$annee %in% c(2017,2018,2019) & barom_num$SD.Categorie.age==1) # Table catégorie 1
+data_2017a2019_cat2 <- filter(fs, barom_num$annee %in% c(2017,2018,2019) & barom_num$SD.Categorie.age==2) # Table catégorie 2
+data_2017a2019_cat3 <- filter(fs, barom_num$annee %in% c(2017,2018,2019) & barom_num$SD.Categorie.age==3) # Table catégorie 3
+data_2017a2019_cat4 <- filter(fs, barom_num$annee %in% c(2017,2018,2019) & barom_num$SD.Categorie.age==4) # Table catégorie 4
+data_2017a2019_cat5 <- filter(fs, barom_num$annee %in% c(2017,2018,2019) & barom_num$SD.Categorie.age==5) # Table catégorie 5
+data_2017a2019_cat6 <- filter(fs, barom_num$annee %in% c(2017,2018,2019) & barom_num$SD.Categorie.age==6) # Table catégorie 6
+
+
+# DIAGRAMME CATEGORIE 1
+
+data_prefwebcat1 <- data_2017a2019_cat1%>%group_by(barom_num.UG.Equipement.prefere.internet)%>%
+  dplyr::summarize(count=n(),
+                  PrefPourcentage=n()/nrow(data_2017a2019_cat1))
+data_prefwebcat1 <- subset(data_prefwebcat1, barom_num.UG.Equipement.prefere.internet !=99)
+
+Cat1Pie <- ggplot(data=data_prefwebcat1, aes(x=3, y=PrefPourcentage, fill=barom_num.UG.Equipement.prefere.internet))+ geom_col(color="white") +
+coord_polar("y", start=1)+
+geom_text(aes(label=paste0(round(PrefPourcentage*100),"%")),
+                position=position_stack(vjust=0.5), size=I(5.5),color="white")+ theme(panel.background=element_blank(),
+      axis.line=element_blank(),
+      axis.title=element_blank(),
+      axis.ticks=element_blank(),
+      axis.text=element_blank(),
+      legend.text=element_text(size=I(13)),
+      plot.title=element_text(hjust=0.5,size= I(17)))+ggtitle("Préférence d'équipement pour \n se connecter à Internet (12-17 ans)")
+Cat1Pie + scale_fill_discrete(name = "Equipements", labels = c("Smartphone", "Ordinateur", "Tablette", "Télévision", "Ne se connecte jamais", "_", "Ne sait pas"))
+
+# DIAGRAMME CATEGORIE 2
+
+data_prefwebcat2 <- data_2017a2019_cat2%>%group_by(barom_num.UG.Equipement.prefere.internet)%>%
+  dplyr::summarize(count=n(),
+                  PrefPourcentage2=n()/nrow(data_2017a2019_cat2))
+data_prefwebcat2 <- subset(data_prefwebcat2, barom_num.UG.Equipement.prefere.internet !=99)
+
+Cat2Pie <- ggplot(data=data_prefwebcat2, aes(x=3, y=PrefPourcentage2, fill=barom_num.UG.Equipement.prefere.internet))+ geom_col(color="white") +
+coord_polar("y", start=1)+
+geom_text(aes(label=paste0(round(PrefPourcentage2*100),"%")),
+                position=position_stack(vjust=0.5), size=I(5.5),color="white")+ theme(panel.background=element_blank(),
+      axis.line=element_blank(),
+      axis.title=element_blank(),
+      axis.ticks=element_blank(),
+      axis.text=element_blank(),
+      legend.text=element_text(size=I(13)),
+      plot.title=element_text(hjust=0.5,size= I(17)))+ggtitle("Préférence d'équipement pour \n se connecter à Internet (18-24 ans)")
+Cat2Pie + scale_fill_discrete(name = "Equipements", labels = c("Smartphone", "Ordinateur", "Tablette", "Télévision", "Ne se connecte jamais", "_", "Ne sait pas"))
+
+# DIAGRAMME CATEGORIE 3
+
+data_prefwebcat3 <- data_2017a2019_cat3%>%group_by(barom_num.UG.Equipement.prefere.internet)%>%
+  dplyr::summarize(count=n(),
+                  PrefPourcentage3=n()/nrow(data_2017a2019_cat3))
+data_prefwebcat3 <- subset(data_prefwebcat3, barom_num.UG.Equipement.prefere.internet !=99)
+
+Cat3Pie <- ggplot(data=data_prefwebcat3, aes(x=3, y=PrefPourcentage3, fill=barom_num.UG.Equipement.prefere.internet))+ geom_col(color="white") +
+coord_polar("y", start=1)+
+geom_text(aes(label=paste0(round(PrefPourcentage3*100),"%")),
+                position=position_stack(vjust=0.5), size=I(5.5),color="white")+ theme(panel.background=element_blank(),
+      axis.line=element_blank(),
+      axis.title=element_blank(),
+      axis.ticks=element_blank(),
+      axis.text=element_blank(),
+      legend.text=element_text(size=I(13)),
+      plot.title=element_text(hjust=0.5,size= I(17)))+ggtitle("Préférence d'équipement pour \n se connecter à Internet (25-39 ans)")
+Cat3Pie + scale_fill_discrete(name = "Equipements", labels = c("Smartphone", "Ordinateur", "Tablette", "Télévision", "Ne se connecte jamais", "_", "Ne sait pas"))
+
+# DIAGRAMME CATEGORIE 4
+
+data_prefwebcat4 <- data_2017a2019_cat4%>%group_by(barom_num.UG.Equipement.prefere.internet)%>%
+  dplyr::summarize(count=n(),
+                  PrefPourcentage4=n()/nrow(data_2017a2019_cat4))
+data_prefwebcat4 <- subset(data_prefwebcat4, barom_num.UG.Equipement.prefere.internet !=99)
+
+Cat4Pie <- ggplot(data=data_prefwebcat4, aes(x=3, y=PrefPourcentage4, fill=barom_num.UG.Equipement.prefere.internet))+ geom_col(color="white") +
+coord_polar("y", start=1)+
+geom_text(aes(label=paste0(round(PrefPourcentage4*100),"%")),
+                position=position_stack(vjust=0.5), size=I(5.5),color="white")+ theme(panel.background=element_blank(),
+      axis.line=element_blank(),
+      axis.title=element_blank(),
+      axis.ticks=element_blank(),
+      axis.text=element_blank(),
+      legend.text=element_text(size=I(13)),
+      plot.title=element_text(hjust=0.5,size= I(17)))+ggtitle("Préférence d'équipement pour \n se connecter à Internet (40-59 ans)")
+Cat4Pie + scale_fill_discrete(name = "Equipements", labels = c("Smartphone", "Ordinateur", "Tablette", "Télévision", "Ne se connecte jamais", "Ne sait pas"))
+
+# DIAGRAMME CATEGORIE 5
+
+data_prefwebcat5 <- data_2017a2019_cat5%>%group_by(barom_num.UG.Equipement.prefere.internet)%>%
+  dplyr::summarize(count=n(),
+                  PrefPourcentage5=n()/nrow(data_2017a2019_cat5))
+data_prefwebcat5 <- subset(data_prefwebcat5, barom_num.UG.Equipement.prefere.internet !=99)
+
+Cat5Pie <- ggplot(data=data_prefwebcat5, aes(x=3, y=PrefPourcentage5, fill=barom_num.UG.Equipement.prefere.internet))+ geom_col(color="white") +
+coord_polar("y", start=1)+
+geom_text(aes(label=paste0(round(PrefPourcentage5*100),"%")),
+                position=position_stack(vjust=0.5), size=I(5.5),color="white")+ theme(panel.background=element_blank(),
+      axis.line=element_blank(),
+      axis.title=element_blank(),
+      axis.ticks=element_blank(),
+      axis.text=element_blank(),
+      legend.text=element_text(size=I(13)),
+      plot.title=element_text(hjust=0.5,size= I(17)))+ggtitle("Préférence d'équipement pour \n se connecter à Internet (60-69 ans)")
+Cat5Pie + scale_fill_discrete(name = "Equipements", labels = c("Smartphone", "Ordinateur", "Tablette", "Télévision", "Ne se connecte jamais", "Ne sait pas"))
+
+# DIAGRAMME CATEGORIE 6
+
+data_prefwebcat6 <- data_2017a2019_cat6%>%group_by(barom_num.UG.Equipement.prefere.internet)%>%
+  dplyr::summarize(count=n(),
+                  PrefPourcentage6=n()/nrow(data_2017a2019_cat6))
+data_prefwebcat6 <- subset(data_prefwebcat6, barom_num.UG.Equipement.prefere.internet !=99)
+
+Cat6Pie <- ggplot(data=data_prefwebcat6, aes(x=3, y=PrefPourcentage6, fill=barom_num.UG.Equipement.prefere.internet))+ geom_col(color="white") +
+coord_polar("y", start=1)+
+geom_text(aes(label=paste0(round(PrefPourcentage6*100),"%")),
+                position=position_stack(vjust=0.5), size=I(5.5),color="white")+ theme(panel.background=element_blank(),
+      axis.line=element_blank(),
+      axis.title=element_blank(),
+      axis.ticks=element_blank(),
+      axis.text=element_blank(),
+      legend.text=element_text(size=I(13)),
+      plot.title=element_text(hjust=0.5,size= I(17)))+ggtitle("Préférence d'équipement pour \n se connecter à Internet (70 et plus)")
+Cat6Pie + scale_fill_discrete(name = "Equipements", labels = c("Smartphone", "Ordinateur", "Tablette", "Télévision", "Ne se connecte jamais", "Ne sait pas"))
+```
+
+## Graphique n°4 : Description des appareils de connexion préférés en fonction de l'âge
+
+Nous avons réalisé six camemberts, correspondants aux diverses catégories d'âge :
+  
+  * 12-17 ans : une grande majorité de connexions via smartphones, suivi de l'ordinateur et de la tablette. Les autres modes de connexion sont quasiment inexistants.
+  
+  * 18-24 ans : plus encore de connexions via smartphones que les 12-17. Connexion via ordinateur dans les mêmes proportion. La connexion via tablette est marginale, celle via télévision inexistante.
+  
+  * 25-39 ans : même profil que les 12-17 ans : une majorité de connexions via smartphones, mais une tablette moins utilisée, alors que l'ordinateur, lui, enregistre 7 points supplémentaires vs. les 12-17.
+  
+  * 40-59 ans : équilibre relatif entre la proportion de connexions via smartphones (42%) et ordinateur (40%). Les autres connexions correspondent majoritairement à l'usage de tablettes. (/!\ Total != 100% car les non-répondants ont été exclus de la représentation graphique)
+  
+  * 60-69 ans : la majorité des connexions se fait via ordinateur. Viennent ensuite les smartphones (17%) et les tablettes (9%). (/!\ Total != 100% car les non-répondants ont été exclus de la représentation graphique)
+  
+  * 70+ ans : La plus grande partie des connexions se font au travers de l'ordinateur (40%). Viennent ensuite à égalité les tablettes et smartphones (7%). (/!\ Total != 100% car les non-répondants ont été exclus de la représentation graphique)
+
+Aussi, nous constatons que la télévision en tant que mode de connexion à internet est très peu usité.
+
+```{r freins internet en fct de l age , fig.width=30, fig.height=15}
+
+dictionnaire = read.csv2("dict.csv", sep = ";")
+fs <- data.frame(barom_num$annee, barom_num$SD.Sexe, barom_num$SD.Categorie.age, barom_num$SD.CSP, barom_num$SD.Niveau.diplome, barom_num$SD.Taille.agglomeration, barom_num$UG.Competence,  barom_num$UG.Frein.internet, barom_num$UG.Smartphone,barom_num$UG.Connexion.internet.fixe, barom_num$UG.Connexion.internet.mobile, barom_num$UG.Frequence.connexion.internet, barom_num$UG.Frequence.ordinateur, barom_num$UG.Frequence.smartphone, barom_num$UG.Equipement.prefere.internet, barom_num$UG.Utilite.ordinateur, barom_num$UG.Utilité.smartphone, barom_num$RRSS.divertissement, barom_num$RRSS.lien.proches, barom_num$RRSS.info.actu, barom_num$RRSS.Media.suivi.actu, barom_num$RRSS.Media.comprehension.actu, barom_num$RRSS.1er.media.confiance, barom_num$RRSS.2nd.media.confiance)
+
+fs <- data.frame(barom_num$annee, barom_num$SD.Sexe, barom_num$SD.Categorie.age, barom_num$SD.CSP, barom_num$SD.Niveau.diplome, barom_num$SD.Taille.agglomeration, barom_num$UG.Competence,  barom_num$UG.Frein.internet, barom_num$UG.Smartphone,barom_num$UG.Connexion.internet.fixe, barom_num$UG.Connexion.internet.mobile, barom_num$UG.Frequence.connexion.internet, barom_num$UG.Frequence.ordinateur, barom_num$UG.Frequence.smartphone, barom_num$UG.Equipement.prefere.internet, barom_num$UG.Utilite.ordinateur, barom_num$UG.Utilité.smartphone, barom_num$RRSS.divertissement, barom_num$RRSS.lien.proches, barom_num$RRSS.info.actu, barom_num$RRSS.Media.suivi.actu, barom_num$RRSS.Media.comprehension.actu, barom_num$RRSS.1er.media.confiance, barom_num$RRSS.2nd.media.confiance)
+
+# la première boucle prend la valeur numérique de la variable "frein.internet" et la change par sa signification qui se trouve dans le dictionnaire qu'est à son tour un extrait de la data "dictionnaire des variables". La deuxième boucle fait la même chose, elle prend la valeur numérique et la change par la signification qui existe dans la data "dictionnaire".
+
+
+fs = fs[!is.na(fs$barom_num.UG.Frein.internet),]
+fs = fs[!is.na(fs$barom_num.SD.Categorie.age),]
+fs$barom_num.UG.Frein.internet = as.character(fs$barom_num.UG.Frein.internet)
+fs$barom_num.SD.Categorie.age = as.character(fs$barom_num.SD.Categorie.age)
+dictionnaire$FREINWEB = as.character(dictionnaire$FREINWEB)
+for (j in 1:length(fs$barom_num.annee)){
+  for (i in 1:length(dictionnaire$FREINWEB)){
+    a = strsplit(dictionnaire$FREINWEB[i], "-")
+    if (fs$barom_num.UG.Frein.internet[j] == a[[1]][1]){
+      if (!is.na(a[[1]][3])){
+        fs$barom_num.UG.Frein.internet[j] = paste(a[[1]][2],"\n",a[[1]][3])
+      }
+      if (is.na(a[[1]][3])){
+        fs$barom_num.UG.Frein.internet[j] = a[[1]][2]
+      }
+    }
+  }
+}
+
+dictionnaire$AGE6FUZ = as.character(dictionnaire$AGE6FUZ)
+for (j in 1:length(fs$barom_num.SD.Categorie.age)){
+  for (i in 1:6){
+    a = strsplit(dictionnaire$AGE6FUZ[i], "-")
+    if (fs$barom_num.SD.Categorie.age[j] == a[[1]][1]){
+      if (!is.na(a[[1]][3])){
+        fs$barom_num.SD.Categorie.age[j] = paste(a[[1]][2],"-",a[[1]][3])
+      }
+      if (is.na(a[[1]][3])){
+        fs$barom_num.SD.Categorie.age[j] = a[[1]][2]
+      }
+    }
+  }
+}
+
+fs$barom_num.SD.Categorie.age = as.factor(fs$barom_num.SD.Categorie.age)
+fs$barom_num.UG.Frein.internet = as.factor(fs$barom_num.UG.Frein.internet)
+fs = fs[!(fs$barom_num.UG.Frein.internet == 99),]
+fs$barom_num.UG.Frein.internet = droplevels(fs$barom_num.UG.Frein.internet)
+
+# C'est la méthode du package "ggplot2" qui construit la légende par la méthode (geom_bar(fill = barom_num.UG.Frein.Internet), elle affecte à chaque valeur de la variable "barom_num.UG.Frein.Internet" un couleur unique. ggplot fonctionne juste avec la data "fs" mais la data "fs" dépend de la data "dict.csv" donc toute est liée.
+
+g <- ggplot(fs, aes(barom_num.SD.Categorie.age))
+g + geom_bar(aes(fill=barom_num.UG.Frein.internet), width = 0.5) + 
+  theme(axis.text.x = element_text(angle=65, vjust=0.6),text = element_text(size = 30)) + 
+  labs(title="Histogram: Les freins d’utilisation d’internet base sur les groupe d'âge", 
+       subtitle="Les freins d’utilisation d’internet base sur les groupe d'âges",
+       x = "age categories",
+       y = "Count",
+       colour = "Les freins d’utilisation d’internet") + scale_fill_discrete(name = "Les freins d’utilisation d’internet")
+```
+
+## Graphique n°5 : Freins d'utilisation d'internet en fonction de l'âge
+
+Dans les catégories d'âge de 40 à 70 ans et plus, on constate qu'Internet est trop compliqué à utiliser. 
+
+Pour les jeunes générations, qui vont de 25 à 39 ans, il n’y a aucun de ces freins d’utilisation d’internet. Il s'agit plus de la qualité du service qui est remise en cause : ils attendent de l'immédiateté. 
+
+Toutes les générations semblent conscientes que les données personnelles ne sont pas suffisamment protégées sur internet et cela les freine.
+
+```{r verif correlations}
+
+# Coefficient correlation confiance media (1) /media pour suivi actu
+
+corr <- data.frame(fs1$barom_num.annee, as.numeric(fs1$barom_num.RRSS.1er.media.confiance), as.numeric(fs1$barom_num.RRSS.2nd.media.confiance), as.numeric(fs1$barom_num.RRSS.Media.suivi.actu), as.numeric(fs1$barom_num.RRSS.Media.comprehension.actu))
+corr <- subset(corr, fs1.barom_num.annee ==2019) #L'objectif est de créer un data frame contenant 4 variables : médias de confiance (1er et 2nd) et médias utilisés pour suivre et pour comprendre l'actualité. Afin de disposer de toutes les données, nous avons restreint les observations à celles de l'année 2019
+
+reg<-lm(as.numeric.fs1.barom_num.RRSS.1er.media.confiance. ~ as.numeric.fs1.barom_num.RRSS.Media.suivi.actu., data = corr)
+reg #Calcul du coefficient de corrélation linéaire
+
+coeff=coefficients(reg)
+eq1 = paste0("y = ", round(coeff[2],1), "*x + ", round(coeff[1],1)) #définition de la droite de régression linéaire
+
+ggplot(corr, aes(x=as.numeric.fs1.barom_num.RRSS.1er.media.confiance., y=as.numeric.fs1.barom_num.RRSS.Media.suivi.actu.)) + 
+    geom_point() + geom_abline(intercept = 2.6923, slope = 0.3043) + labs(title = "Regression linéaire : 1er média de confiance et média utilisé pour \n le suivi de l'actu",
+              subtitle = eq1, x="1er média de confiance", y= "Média utilisé pour suivre l actu")
+
+# Coefficient correlation confiance media (1)/media pour comprendre actu
+
+reg2<-lm(as.numeric.fs1.barom_num.RRSS.1er.media.confiance. ~ as.numeric.fs1.barom_num.RRSS.Media.comprehension.actu., data = corr)
+reg2
+
+coefff=coefficients(reg2)
+eq2 = paste0("y = ", round(coefff[2],1), "*x + ", round(coefff[1],1))
+
+ggplot(corr, aes(x=as.numeric.fs1.barom_num.RRSS.1er.media.confiance., y=as.numeric.fs1.barom_num.RRSS.Media.comprehension.actu.)) + 
+    geom_point()+ geom_abline(intercept = 2.7036, slope = 0.2777) + labs(title = "Regression linéaire : 1er média de confiance et média utilisé pour \n comprendre l'actu",
+              subtitle = eq2, x="1er média de confiance", y= "Média utilisé pour comprendre l actu")
+
+# Coefficient correlation confiance media (2)/media pour suivre actu
+
+reg3<-lm(as.numeric.fs1.barom_num.RRSS.2nd.media.confiance. ~ as.numeric.fs1.barom_num.RRSS.Media.suivi.actu., data = corr)
+reg3
+
+coeffff=coefficients(reg3)
+eq3 = paste0("y = ", round(coeffff[2],1), "*x + ", round(coeffff[1],1))
+
+ggplot(corr, aes(x=as.numeric.fs1.barom_num.RRSS.2nd.media.confiance., y=as.numeric.fs1.barom_num.RRSS.Media.suivi.actu.)) + 
+    geom_point() + geom_abline(intercept = 3.826816, slope = 0.005058) + labs(title = "Regression linéaire : 2nd média de confiance et média utilisé pour \n suivre l'actu",
+              subtitle = eq3, x="2nd média de confiance", y= "Média utilisé pour suivre l actu")
+
+# Coefficient correlation confiance media (2)/media pour comprendre actu
+
+reg4<-lm(as.numeric.fs1.barom_num.RRSS.2nd.media.confiance. ~ as.numeric.fs1.barom_num.RRSS.Media.comprehension.actu., data = corr)
+reg4
+
+coefffff=coefficients(reg4)
+eq4 = paste0("y = ", round(coefffff[2],1), "*x + ", round(coefffff[1],1))
+
+ggplot(corr, aes(x=as.numeric.fs1.barom_num.RRSS.2nd.media.confiance., y=as.numeric.fs1.barom_num.RRSS.Media.comprehension.actu.)) + 
+    geom_point() + geom_abline(intercept = 3.76596, slope = 0.02239) + labs(title = "Regression linéaire : 2nd média de confiance et média utilisé pour \n comprendre l'actu",
+              subtitle = eq4, x="2nd média de confiance", y= "Média utilisé pour comprendre l actu")
+```
+## Régressions linéaires
+
+Même si une régression n'était pas très pertinente avec notre dataset, nous nous sommes essayés à l'exercice, en essayant de déterminer s'il existait une incidence entre les médias utilisés pour suivre/comprendre l'actualité, et les médias désignés comme "de confiance" par les répondants.
+
+  1ere régression : il s'agit de notre résultat le plus signifiant, puisque nous obtenons un coefficient r de 0,3, soit une intensité de liaision linéaire moyenne (Cohen J. (1992) A power primer. Psychological Bulletin. 112(1): 155-159).
+  
+   2nde régression : ici, nous obtenons un coefficient r de 0,28, soit une intensité de liaision linéaire faible.
+  
+  3ème régression : ici, nous obtenons un coefficient r de 0,005, soit une intensité de liaision linéaire faible.
+  
+  4ème régression : ici, nous obtenons un coefficient r de 0,02, soit une intensité de liaision linéaire faible.
+
+
